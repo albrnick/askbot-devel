@@ -7,49 +7,50 @@ basic actions on behalf of the forum application
 import os
 import platform
 
-VERSION = (0, 10, 0)
+VERSION = (0, 10, 1)
 
 default_app_config = 'askbot.apps.AskbotConfig'
 
 #keys are module names used by python imports,
 #values - the package qualifier to use for pip
 REQUIREMENTS = {
-    'akismet': 'akismet',
-    'avatar': 'django-avatar>=2.0',
-    'bs4': 'beautifulsoup4',
+    'akismet': 'akismet<=0.2.0',
+    'avatar': 'django-avatar==2.2.1',
+    'bs4': 'beautifulsoup4<=4.4.1',
     'coffin': 'Coffin>=0.3,<=0.3.8',
     'compressor': 'django-compressor>=1.3,<=1.5',
     'django': 'django>=1.8,<1.9',
     'django_countries': 'django-countries==3.3',
-    'djcelery': 'django-celery>=3.0.11',
+    'djcelery': 'django-celery>=3.0.11,<=3.1.17',
     'djkombu': 'django-kombu==0.9.4',
-    'followit': 'django-followit==0.2.0',
-    'html5lib': 'html5lib==0.90',
-    'jinja2': 'Jinja2>=2.8',
-    'jsonfield': 'jsonfield',
-    'jwt': 'pyjwt',
-    'keyedcache': 'django-keyedcache',
-    'markdown2': 'markdown2',
+    'followit': 'django-followit==0.2.1',
+    'html5lib': 'html5lib==0.9999999',
+    'jinja2': 'Jinja2==2.8',
+    'jsonfield': 'jsonfield<=1.0.3',
+    'jwt': 'pyjwt<=1.4.0',
+    'keyedcache': 'django-keyedcache<=1.5.1',
+    'markdown2': 'markdown2<=2.3.1',
     'mock': 'mock==1.0.1',
-    'oauth2': 'oauth2',
-    'openid': 'python-openid',
+    'oauth2': 'oauth2<=1.9.0.post1',
+    'openid': 'python-openid<=2.2.5',
     'picklefield': 'django-picklefield==0.3.0',
     'pystache': 'pystache==0.3.1',
-    'pytz': 'pytz',
-    'captcha': 'django-recaptcha>=1.0.3',
+    'pytz': 'pytz<=2016.4',
+    'captcha': 'django-recaptcha>=1.0.3,<=1.0.5',
     'cas': 'python-cas==1.1.0',
-    'requirements': 'requirements-parser',
+    'requirements': 'requirements-parser==0.1.0',
     'robots': 'django-robots==1.1',
     'sanction': 'sanction==0.3.1',
-    'simplejson': 'simplejson',
-    'threaded_multihost': 'django-threaded-multihost',
+    'simplejson': 'simplejson<=3.8.2',
+    'south': 'South>=0.7.1,<=1.0.2',
+    'threaded_multihost': 'django-threaded-multihost<=1.4-1',
     'tinymce': 'django-tinymce==1.5.3',
-    'unidecode': 'unidecode',
+    'unidecode': 'unidecode<=0.4.19',
     #'stopforumspam': 'stopforumspam'
 }
 
 if platform.system() != 'Windows':
-    REQUIREMENTS['lamson'] = 'Lamson'
+    REQUIREMENTS['lamson'] = 'Lamson<=1.3.4'
 
 #necessary for interoperability of django and coffin
 try:

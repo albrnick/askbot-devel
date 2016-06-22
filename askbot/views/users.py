@@ -26,7 +26,6 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseForbidden
 from django.http import HttpResponseRedirect, Http404
-from django.utils.translation import get_language
 from django.utils.translation import string_concat
 from django.utils.translation import ugettext as _
 from django.utils.translation import ungettext
@@ -38,9 +37,11 @@ from django.views.decorators import csrf
 from askbot.utils.slug import slugify
 from askbot.utils.html import sanitize_html
 from askbot.mail import send_mail
+from askbot.utils.translation import get_language
 from askbot.utils.http import get_request_info
 from askbot.utils import decorators
 from askbot.utils import functions
+from askbot.utils.markup import convert_text
 from askbot import forms
 from askbot import const
 from askbot.views import context as view_context
@@ -83,7 +84,7 @@ def clear_new_notifications(request):
     activity_types += (
         const.TYPE_ACTIVITY_MENTION,
     )
-    post_data = simplejson.loads(request.raw_post_data)
+    post_data = simplejson.loads(request.body)
     memo_set = models.ActivityAuditStatus.objects.filter(
         id__in=post_data['memo_ids'],
         activity__activity_type__in=activity_types,
@@ -94,7 +95,7 @@ def clear_new_notifications(request):
 
 @decorators.ajax_only
 def delete_notifications(request):
-    post_data = simplejson.loads(request.raw_post_data)
+    post_data = simplejson.loads(request.body)
     memo_set = models.ActivityAuditStatus.objects.filter(
         id__in=post_data['memo_ids'],
         user=request.user
@@ -187,7 +188,11 @@ def show_users(request, by_group=False, group_id=None, group_slug=None):
             order_by_parameter = 'username'
         else:
             # default
-            order_by_parameter = '-askbot_profile__reputation'
+            if askbot.is_multilingual():
+                order_by_parameter = '-localized_askbot_profiles__reputation'
+            else:
+                order_by_parameter = '-askbot_profile__reputation'
+
 
         objects_list = Paginator(
                             users.order_by(order_by_parameter),
@@ -240,7 +245,7 @@ def show_users(request, by_group=False, group_id=None, group_slug=None):
         'search_query' : search_query,
         'tab_id' : sort_method,
         'user_acceptance_level': user_acceptance_level,
-        'user_count': users.count(),
+        'user_count': objects_list.count,
         'user_groups': user_groups,
         'user_membership_level': user_membership_level,
         'users' : users_page,
@@ -316,10 +321,10 @@ def user_moderate(request, subject, context):
                     rep_delta = -1 * rep_delta
 
                 moderator.moderate_user_reputation(
-                                    user = subject,
-                                    reputation_change = rep_delta,
-                                    comment = comment,
-                                    timestamp = timezone.now(),
+                                    user=subject,
+                                    reputation_change=rep_delta,
+                                    comment=comment,
+                                    timestamp=timezone.now(),
                                 )
                 #reset form to preclude accidentally repeating submission
                 user_rep_form = forms.ChangeUserReputationForm()
@@ -636,6 +641,48 @@ def user_stats(request, user, context):
 
     return render(request, 'user_profile/user_stats.html', context)
 
+
+@decorators.ajax_only
+def get_user_description(request):
+    if request.user.is_anonymous():
+        if askbot_settings.CLOSED_FORUM_MODE:
+            raise django_exceptions.PermissionDenied
+
+    form = forms.UserForm(request.GET)
+    if not form.is_valid():
+        raise ValueError('bad data')
+
+    user_id = form.cleaned_data['user_id']
+    user = models.User.objects.get(pk=user_id)
+    return {'description': user.get_localized_profile().about}
+
+
+@csrf.csrf_protect
+@decorators.ajax_only
+@decorators.post_only
+def set_user_description(request):
+    if request.user.is_anonymous():
+        raise django_exceptions.PermissionDenied
+
+    if askbot_settings.READ_ONLY_MODE_ENABLED:
+        message = askbot_settings.READ_ONLY_MESSAGE
+        raise django_exceptions.PermissionDenied(message)
+
+    form = forms.UserDescriptionForm(request.POST)
+    if not form.is_valid():
+        raise ValueError('bad data')
+
+    user_id = form.cleaned_data['user_id']
+    description = form.cleaned_data['description']
+        
+    if user_id == request.user.pk or request.user.is_admin_or_mod():
+        user = models.User.objects.get(pk=user_id)
+        user.update_localized_profile(about=description)
+        return {'description_html': convert_text(description)}
+
+    raise django_exceptions.PermissionDenied
+
+
 def user_recent(request, user, context):
 
     def get_type_name(type_id):
@@ -941,12 +988,24 @@ def user_votes(request, user, context):
 
 
 def user_reputation(request, user, context):
-    reputes = models.Repute.objects.filter(user=user).select_related('question', 'question__thread', 'user').order_by('-reputed_at')
+    reputes = models.Repute.objects.filter(
+                                        user=user,
+                                        language_code=get_language()
+                                    ).select_related(
+                                        'question',
+                                        'question__thread',
+                                        'user'
+                                    )
+                                    
 
     # prepare data for the graph - last values go in first
-    rep_list = ['[%s,%s]' % (calendar.timegm(timezone.now().timetuple()) * 1000, user.reputation)]
-    for rep in reputes:
-        rep_list.append('[%s,%s]' % (calendar.timegm(rep.reputed_at.timetuple()) * 1000, rep.reputation))
+    reputation = const.MIN_REPUTATION
+    rep_list = list()
+    rep_list.append('[%s, %s]' % (calendar.timegm(user.date_joined.timetuple()) * 1000, reputation))
+    for rep in reputes.order_by('reputed_at'):
+        reputation += (rep.positive + rep.negative)
+        rep_list.append('[%s,%s]' % (calendar.timegm(rep.reputed_at.timetuple()) * 1000, reputation))
+
     reps = ','.join(rep_list)
     reps = '[%s]' % reps
 
@@ -955,7 +1014,7 @@ def user_reputation(request, user, context):
         'page_class': 'user-profile-page',
         'tab_name': 'reputation',
         'page_title': _("Profile - User's Karma"),
-        'reputation': reputes,
+        'reputation': reputes.order_by('-reputed_at')[:100],
         'reps': reps
     }
     context.update(data)
@@ -1227,7 +1286,7 @@ def groups(request, id = None, slug = None):
                                     )
 
     groups = groups.exclude_personal()
-    groups = groups.annotate(users_count=Count('user'))
+    groups = groups.annotate(users_count=Count('user_membership'))
 
     user_can_add_groups = request.user.is_authenticated() and \
             request.user.is_administrator_or_moderator()

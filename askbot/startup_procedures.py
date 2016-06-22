@@ -155,10 +155,10 @@ def test_middleware():
         'askbot.middleware.cancel.CancelActionMiddleware',
         #'django.middleware.transaction.TransactionMiddleware',
     ]
-    if 'debug_toolbar' in django_settings.INSTALLED_APPS:
-        required_middleware.append(
-            'debug_toolbar.middleware.DebugToolbarMiddleware',
-        )
+    #if 'debug_toolbar' in django_settings.INSTALLED_APPS:
+    #    required_middleware.append(
+    #        'debug_toolbar.middleware.DebugToolbarMiddleware',
+    #    )
     required_middleware.extend([
         'askbot.middleware.view_log.ViewLogMiddleware',
         'askbot.middleware.spaceless.SpacelessMiddleware',
@@ -253,12 +253,12 @@ def test_specs(req):
         message = """Unsupported version of module {name},
 found version {mod_ver}, {need_spec} required.
 please run:
-> pip uninstall {name} && pip install '{need_spec}'""".format(**data)
+> pip uninstall '{name}' && pip install '{need_spec}'""".format(**data)
         raise AskbotConfigError(message)
 
 
 def get_req_name_from_spec(spec):
-    spec = spec.replace('>', '=').replace('>', '=')
+    spec = spec.replace('>', '=').replace('<', '=')
     bits = spec.split('=')
     return bits[0]
 
@@ -772,6 +772,10 @@ def test_tinymce():
 
     config = getattr(django_settings, 'TINYMCE_DEFAULT_CONFIG', None)
     if config:
+        if 'editor_deselector' not in config:
+            message = "add to TINYMCE_DEFAULT_CONFIG\n'editor_deselector': 'mceNoEditor',"
+            errors.append(message)
+        
         if 'convert_urls' in config:
             if config['convert_urls'] is not False:
                 message = "set 'convert_urls':False in TINYMCE_DEFAULT_CONFIG"
@@ -784,14 +788,10 @@ def test_tinymce():
     #check js root setting - before version 0.7.44 we used to have
     #"common" skin and after we combined it into the default
     js_root = getattr(django_settings, 'TINYMCE_JS_ROOT', '')
-    old_relative_js_path = 'common/media/tinymce/'
     relative_js_path = 'default/media/tinymce/'
     expected_js_root = os.path.join(django_settings.STATIC_ROOT, relative_js_path)
-    old_expected_js_root = os.path.join(django_settings.STATIC_ROOT, old_relative_js_path)
     if os.path.normpath(js_root) != os.path.normpath(expected_js_root):
         error_tpl = "add line: TINYMCE_JS_ROOT = os.path.join(STATIC_ROOT, '%s')"
-        if os.path.normpath(js_root) == os.path.normpath(old_expected_js_root):
-            error_tpl += '\nNote: we have moved files from "common" into "default"'
         errors.append(error_tpl % relative_js_path)
 
     if errors:
@@ -863,10 +863,10 @@ def test_group_messaging():
     """tests correctness of the "group_messaging" app configuration"""
     errors = list()
     if 'askbot.deps.group_messaging' not in django_settings.INSTALLED_APPS:
-        errors.append("add to the INSTALLED_APPS:\n'group_messaging'")
+        errors.append("add to the INSTALLED_APPS:\n'askbot.deps.group_messaging',")
 
     if 'group_messaging' in django_settings.INSTALLED_APPS:
-        errors.append("remove from the INSTALLED_APPS:\n'group_messaging'")
+        errors.append("remove from the INSTALLED_APPS:\n'group_messaging',")
 
     settings_sample = ("GROUP_MESSAGING = {\n"
     "    'BASE_URL_GETTER_FUNCTION': 'askbot.models.user_get_profile_url',\n"

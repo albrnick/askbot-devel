@@ -6,6 +6,7 @@ from django.utils.translation import ugettext as _
 from django.utils.translation import ugettext_lazy
 from django.conf import settings as django_settings
 from askbot.models.base import BaseQuerySetManager
+from askbot.models.fields import LanguageCodeField
 from askbot import const
 from askbot.conf import settings as askbot_settings
 from askbot.utils import category_tree
@@ -122,7 +123,7 @@ class TagQuerySet(models.query.QuerySet):
     def update_use_counts(self, tags):
         """Updates the given Tags with their current use counts."""
         for tag in tags:
-            tag.used_count = tag.threads.count()
+            tag.used_count = tag.threads.filter(deleted=False).count()
             tag.save()
 
     def mark_undeleted(self):
@@ -258,11 +259,7 @@ class Tag(models.Model):
 
     name = models.CharField(max_length=255)
     created_by = models.ForeignKey(User, related_name='created_tags')
-    language_code = models.CharField(
-                                choices=django_settings.LANGUAGES,
-                                default=django_settings.LANGUAGE_CODE,
-                                max_length=16,
-                            )
+    language_code = LanguageCodeField()
     suggested_by = models.ManyToManyField(
         User, related_name='suggested_tags',
         help_text = 'Works only for suggested tags for tag moderation'
@@ -294,6 +291,10 @@ class Tag(models.Model):
     def __unicode__(self):
         return self.name
 
+    def decrement_used_count(self, delta=1):
+        if self.used_count >= delta:
+            self.used_count = self.used_count - delta
+
 class MarkedTag(models.Model):
     TAG_MARK_REASONS = (
         ('good', ugettext_lazy('interesting')),
@@ -316,11 +317,7 @@ class TagSynonym(models.Model):
     owned_by = models.ForeignKey(User, related_name='tag_synonyms')
     auto_rename_count = models.IntegerField(default=0)
     last_auto_rename_at = models.DateTimeField(auto_now=True)
-    language_code = models.CharField(
-                                choices=django_settings.LANGUAGES,
-                                default=django_settings.LANGUAGE_CODE,
-                                max_length=16,
-                            )
+    language_code = LanguageCodeField()
 
     class Meta:
         app_label = 'askbot'

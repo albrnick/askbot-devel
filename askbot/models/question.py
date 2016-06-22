@@ -26,8 +26,9 @@ from askbot.models.tag import get_tags_by_names
 from askbot.models.tag import filter_accepted_tags, filter_suggested_tags
 from askbot.models.tag import separate_unused_tags
 from askbot.models.base import BaseQuerySetManager
-from askbot.models.base import DraftContent
+from askbot.models.base import DraftContent, AnonymousContent
 from askbot.models.user import Group, PERSONAL_GROUP_NAME_PREFIX
+from askbot.models.fields import LanguageCodeField
 from askbot import signals
 from askbot import const
 from askbot.utils.lists import LazyList
@@ -644,11 +645,7 @@ class Thread(models.Model):
     answer_count = models.PositiveIntegerField(default=0)
     last_activity_at = models.DateTimeField(default=timezone.now)
     last_activity_by = models.ForeignKey(User, related_name='unused_last_active_in_threads')
-    language_code = models.CharField(
-                            choices=django_settings.LANGUAGES,
-                            default=django_settings.LANGUAGE_CODE,
-                            max_length=16
-                        )
+    language_code = LanguageCodeField()
 
     #todo: these two are redundant (we used to have a "star" and "subscribe"
     #now merged into "followed")
@@ -930,7 +927,7 @@ class Thread(models.Model):
         for tag in wrong_lang_tags:
             wrong_lang_tag_names.append(tag.name)
             if tag.used_count > 0:
-                tag.used_count -= 1
+                tag.decrement_used_count()
                 tag.save()
 
         #load existing tags and figure out which tags don't exist
@@ -965,6 +962,12 @@ class Thread(models.Model):
         for post in self.posts.all():
             post.language_code = language_code
             post.save()
+
+        #update language of the reputes on the question
+        question = self._question_post()
+        from askbot.models import Repute
+        reputes = Repute.objects.filter(question=question)
+        reputes.update(language_code=language_code)
 
         #make sure that tags have correct language code
         self.set_tags_language_code(language_code)
@@ -1578,7 +1581,7 @@ class Thread(models.Model):
         removed_tags = list()
         for tag in self.tags.all():
             if tag.name in tagnames:
-                tag.used_count -= 1
+                tag.decrement_used_count()
                 removed_tags.append(tag)
         self.tags.remove(*removed_tags)
         return removed_tags
@@ -1867,20 +1870,19 @@ class FavoriteQuestion(models.Model):
         return u'[%s] favorited at %s' %(self.user, self.added_at)
 
 
-class DraftQuestion(models.Model):
+class DraftQuestion(DraftContent):
     """Provides space to solve unpublished draft
     questions. Contents is used to populate the Ask form.
     """
     author = models.ForeignKey(User)
     title = models.CharField(max_length=300, null=True)
-    text = models.TextField(null=True)
     tagnames = models.CharField(max_length=125, null=True)
 
     class Meta:
         app_label = 'askbot'
 
 
-class AnonymousQuestion(DraftContent):
+class AnonymousQuestion(AnonymousContent):
     """question that was asked before logging in
     maybe the name is a little misleading, the user still
     may or may not want to stay anonymous after the question

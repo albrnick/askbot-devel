@@ -15,6 +15,7 @@
 from django.contrib.syndication.views import Feed
 
 import itertools
+import askbot.utils.timezone
 
 from django.conf import settings as django_settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -59,7 +60,7 @@ class RssIndividualQuestionFeed(Feed):
     def item_pubdate(self, item):
         """get date of creation for the item
         """
-        return item.added_at
+        return askbot.utils.timezone.make_aware(item.added_at)
 
     def items(self, item):
         """get content items for the feed
@@ -69,16 +70,30 @@ class RssIndividualQuestionFeed(Feed):
         """
         chain_elements = list()
         chain_elements.append([item,])
+
+        comments_filter = {'parent': item}
+        if askbot_settings.CONTENT_MODERATION_MODE == 'premoderation':
+            comments_filter['approved'] = True
+
         chain_elements.append(
-            Post.objects.get_comments().filter(parent=item)
+            Post.objects.get_comments().filter(**comments_filter)
         )
 
-        answers = Post.objects.get_answers().filter(thread = item.thread)
+        answers_filter = {'thread': item.thread}
+        if askbot_settings.CONTENT_MODERATION_MODE == 'premoderation':
+            answers_filter['approved'] = True
+
+        answers = Post.objects.get_answers().filter(**answers_filter)
 
         for answer in answers:
             chain_elements.append([answer,])
+
+            comments_filter = {'parent': answer}
+            if askbot_settings.CONTENT_MODERATION_MODE == 'premoderation':
+                comments_filter['approved'] = True
+
             chain_elements.append(
-                Post.objects.get_comments().filter(parent=answer)
+                Post.objects.get_comments().filter(**comments_filter)
             )
 
         return itertools.chain(*chain_elements)
@@ -135,7 +150,7 @@ class RssLastestQuestionsFeed(Feed):
     def item_pubdate(self, item):
         """get date of creation for the item
         """
-        return item.added_at
+        return askbot.utils.timezone.make_aware(item.added_at)
 
     def item_guid(self, item):
         """returns url without the slug
@@ -160,6 +175,8 @@ class RssLastestQuestionsFeed(Feed):
         #initial filtering
         filters = {'deleted': False}
         filters['language_code'] = get_language()
+        if askbot_settings.CONTENT_MODERATION_MODE == 'premoderation':
+            filters['approved'] = True
             
         qs = Post.objects.get_questions().filter(**filters)
 

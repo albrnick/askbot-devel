@@ -56,7 +56,8 @@ from askbot.models.post import DraftAnswer
 from askbot.models.user_profile import (
                                 add_profile_properties,
                                 UserProfile,
-                                LocalizedUserProfile
+                                LocalizedUserProfile,
+                                get_localized_profile_cache_key
                             )
 from askbot.models.reply_by_email import ReplyAddress
 from askbot.models.badges import award_badges_signal, get_badge
@@ -111,7 +112,7 @@ def get_admin():
 
 def get_moderators():
     return User.objects.filter(
-            Q(status='m') | Q(is_superuser=True)
+            Q(askbot_profile__status='m') | Q(is_superuser=True)
         ).filter(
             is_active = True
         )
@@ -187,7 +188,7 @@ if DJANGO_VERSION > (1, 3):
 add_profile_properties(User)
 
 GRAVATAR_TEMPLATE = "%(gravatar_url)s/%(gravatar)s?" + \
-    "s=%(size)d&amp;d=%(type)s&amp;r=PG"
+    "s=%(size)s&amp;d=%(type)s&amp;r=PG"
 
 def user_get_gravatar_url(self, size):
     """returns gravatar url
@@ -198,6 +199,11 @@ def user_get_gravatar_url(self, size):
                 'type': askbot_settings.GRAVATAR_TYPE,
                 'size': size,
             }
+
+def user_get_reputation(self):
+    if askbot.is_multilingual() and askbot_settings.REPUTATION_LOCALIZED:
+        return self.get_localized_profile().get_reputation()
+    return self.reputation
 
 def user_get_default_avatar_url(self, size):
     """returns default avatar url
@@ -229,7 +235,7 @@ def user_get_avatar_url(self, size=48):
     JSONField .avatar_urls is used as "cache"
     to avoid multiple db hits to fetch avatar urls
     """
-    size = int(size)
+    size = str(size)
     url = self.avatar_urls.get(size)
     if not url:
         url = self.calculate_avatar_url(size)
@@ -249,10 +255,10 @@ def user_calculate_avatar_url(self, size=48):
     elif avatar_type == 'a':
         from avatar.conf import settings as avatar_settings
         sizes = avatar_settings.AVATAR_AUTO_GENERATE_SIZES
-        if size not in sizes:
+        if int(size) not in sizes:
             logging.critical(
                 'add values %d to setting AVATAR_AUTO_GENERATE_SIZES',
-                size
+                int(size)
             )
 
         from avatar.util import get_primary_avatar
@@ -276,7 +282,7 @@ def user_init_avatar_urls(self):
     from avatar.conf import settings as avatar_settings
     sizes = avatar_settings.AVATAR_AUTO_GENERATE_SIZES
     for size in sizes:
-        size = int(size)
+        size = str(size)
         if size not in self.avatar_urls:
             self.avatar_urls[size] = self.calculate_avatar_url(size)
 
@@ -730,8 +736,11 @@ def user_assert_can_unaccept_best_answer(self, answer=None):
                 )
         return # success
 
+    elif self.is_administrator() or self.is_moderator():
+        return # success
+
     elif self.reputation >= askbot_settings.MIN_REP_TO_ACCEPT_ANY_ANSWER or \
-        self.is_administrator() or self.is_moderator() or self.is_post_moderator(answer):
+        self.is_post_moderator(answer):
 
         will_be_able_at = (
             answer.added_at +
@@ -1336,20 +1345,29 @@ def user_assert_can_revoke_old_vote(self, vote):
             _('sorry, but older votes cannot be revoked')
         )
 
+
 def user_get_localized_profile(self):
-    kwargs = {
-        'language_code': get_language(),
-        'auth_user': self
-    }
-    return LocalizedUserProfile.objects.get_or_create(**kwargs)[0]
+    lang = get_language()
+    key = get_localized_profile_cache_key(self, lang)
+    profile = cache.get(key)
+    if not profile:
+        kwargs = {
+            'language_code': lang,
+            'auth_user': self
+        }
+        profile = LocalizedUserProfile.objects.get_or_create(**kwargs)[0]
+        profile.update_cache()
+    return profile
+
 
 def user_update_localized_profile(self, **kwargs):
-    lang = get_language()
-    lp = LocalizedUserProfile.objects.filter(auth_user=self, language_code=lang)
-    count = lp.update(**kwargs)
-    if count == 0:
-        lp = LocalizedUserProfile(auth_user=self, language_code=lang, **kwargs)
-        lp.save()
+    profile = self.get_localized_profile()
+    for key, val in kwargs.items():
+        setattr(profile, key, val)
+    profile.update_cache()
+    lp = LocalizedUserProfile.objects.filter(pk=profile.pk)
+    lp.update(**kwargs)
+
 
 def user_get_unused_votes_today(self):
     """returns number of votes that are
@@ -1771,7 +1789,7 @@ def user_delete_question(
             tag.deleted_by = self
             tag.deleted_at = timestamp
         else:
-            tag.used_count = tag.used_count - 1
+            tag.decrement_used_count()
         tag.save()
 
     signals.after_post_removed.send(
@@ -2523,12 +2541,7 @@ def user_moderate_user_reputation(
     if comment == None:
         raise ValueError('comment is required to moderate user reputation')
 
-    new_rep = user.reputation + reputation_change
-    if new_rep < 1:
-        new_rep = 1 #todo: magic number
-        reputation_change = 1 - user.reputation
-
-    user.reputation = new_rep
+    user.receive_reputation(reputation_change, get_language())
     user.save()
 
     #any question. This is necessary because reputes are read in the
@@ -2540,13 +2553,13 @@ def user_moderate_user_reputation(
     #question record is fake and is ignored
     #this bug is hidden in call Repute.get_explanation_snippet()
     repute = Repute(
-                        user = user,
-                        comment = comment,
-                        #question = fake_question,
-                        reputed_at = timestamp,
-                        reputation_type = 10, #todo: fix magic number
-                        reputation = user.reputation
-                    )
+                user=user,
+                comment=comment,
+                #question = fake_question,
+                reputed_at=timestamp,
+                reputation_type=10, #todo: fix magic number
+                reputation=user.reputation
+            )
     if reputation_change < 0:
         repute.negative = -1 * reputation_change
     else:
@@ -2714,6 +2727,10 @@ def user_set_languages(self, langs, primary=None):
                                     language_code__in=removed_langs
                                 )
         profiles.update(is_claimed=False)
+
+    profiles = profile_objects.filter(auth_user=self)
+    for profile in profiles:
+        profile.update_cache()
 
 
 def user_get_languages(self):
@@ -3163,13 +3180,26 @@ def user_update_response_counts(user):
     user.save()
 
 
-def user_receive_reputation(self, num_points):
+def user_receive_reputation(self, num_points, language_code=None):
+    language_code = language_code or get_language()
     old_points = self.reputation
     new_points = old_points + num_points
-    if new_points > 0:
-        self.reputation = new_points
-    else:
-        self.reputation = const.MIN_REPUTATION
+    self.reputation = max(const.MIN_REPUTATION, new_points)
+
+    #record localized user reputation - this starts with 0
+    try:
+        profile = LocalizedUserProfile.objects.get(
+                                            auth_user=self,
+                                            language_code=language_code
+                                        )
+    except LocalizedUserProfile.DoesNotExist:
+        profile = LocalizedUserProfile(
+                                    auth_user=self,
+                                    language_code=language_code
+                                )
+    profile.reputation = max(0, profile.reputation + num_points)
+    profile.save()
+
     signals.reputation_received.send(None, user=self, reputation_before=old_points)
 
 def user_update_wildcard_tag_selections(
@@ -3376,6 +3406,7 @@ User.add_to_class('can_post_comment', user_can_post_comment)
 User.add_to_class('can_make_group_private_posts', user_can_make_group_private_posts)
 User.add_to_class('is_administrator', user_is_administrator)
 User.add_to_class('is_administrator_or_moderator', user_is_administrator_or_moderator)
+User.add_to_class('is_admin_or_mod', user_is_administrator_or_moderator) #shorter version
 User.add_to_class('set_admin_status', user_set_admin_status)
 User.add_to_class('edit_group_membership', user_edit_group_membership)
 User.add_to_class('join_group', user_join_group)
@@ -3674,7 +3705,9 @@ def record_user_visit(user, timestamp, **kwargs):
         'last_seen': timestamp,
         'consecutive_days_visit_count': consecutive_days
     }
-    UserProfile.objects.filter(pk=user.id).update(**update_data)
+    UserProfile.objects.filter(pk=user.pk).update(**update_data)
+    profile = UserProfile.objects.get(pk=user.pk)
+    profile.update_cache()
 
 
 def record_question_visit(request, question, **kwargs):

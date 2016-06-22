@@ -597,7 +597,7 @@ def question(request, id):#refactor - long subroutine. display question body, an
                                         thread=thread
                                     )
         if drafts.count() > 0:
-            initial['text'] = drafts[0].text
+            initial['text'] = drafts[0].get_text()
 
     custom_answer_form_path = getattr(django_settings, 'ASKBOT_NEW_ANSWER_FORM', None)
     if custom_answer_form_path:
@@ -627,6 +627,11 @@ def question(request, id):#refactor - long subroutine. display question body, an
     else:
         group_read_only = False
 
+    #session variable added so that the session is
+    #not empty and is not autodeleted, otherwise anonymous
+    #answer posting is impossible
+    request.session['askbot_write_intent'] = True
+
     data = {
         'active_tab': 'questions',
         'answer' : answer_form,
@@ -634,7 +639,6 @@ def question(request, id):#refactor - long subroutine. display question body, an
         'answer_count': thread.get_answer_count(request.user),
         'blank_comment': MockPost(post_type='comment', author=request.user),#data for the js comment template
         'category_tree_data': askbot_settings.CATEGORY_TREE,
-        'editor_is_unfolded': answer_form.has_data(),
         'favorited' : favorited,
         'group_read_only': group_read_only,
         'is_cacheable': False,#is_cacheable, #temporary, until invalidation fix

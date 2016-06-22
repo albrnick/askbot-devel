@@ -30,13 +30,14 @@ from askbot.utils.slug import slugify
 from askbot import const
 from askbot.models.tag import Tag, MarkedTag
 from askbot.models.tag import tags_match_some_wildcard
+from askbot.models.fields import LanguageCodeField
 from askbot.conf import settings as askbot_settings
 from askbot import exceptions
 from askbot.utils import markup
 from askbot.utils.html import (get_word_count, has_moderated_tags,
                 moderate_tags, sanitize_html, strip_tags, site_url)
 from askbot.utils.transaction import defer_celery_task
-from askbot.models.base import BaseQuerySetManager, DraftContent
+from askbot.models.base import AnonymousContent, BaseQuerySetManager, DraftContent
 
 #todo: maybe merge askbot.utils.markup and forum.utils.html
 from askbot.utils.diff import textDiff as htmldiff
@@ -485,11 +486,7 @@ class Post(models.Model):
 
     html = models.TextField(null=True)#html rendition of the latest revision
     text = models.TextField(null=True)#denormalized copy of latest revision
-    language_code = models.CharField(
-                                choices=django_settings.LANGUAGES,
-                                default=django_settings.LANGUAGE_CODE,
-                                max_length=16,
-                            )
+    language_code = LanguageCodeField()
 
     # Denormalised data
     summary = models.TextField(null=True)
@@ -1134,7 +1131,8 @@ class Post(models.Model):
                 snippet = truncated + expander
             #it is important to have div here, so that we can make
             #the expander work
-            return '<div class="snippet">' + snippet + '</div>'
+            from askbot.utils.html import sanitize_html
+            return sanitize_html('<div class="snippet">' + snippet + '</div>')
         else:
             return self.html
 
@@ -2339,6 +2337,13 @@ class PostRevisionManager(models.Manager):
 
         revision.post.cache_latest_revision(revision)
 
+        #maybe add language of the post to the user's languages
+        langs = set(author.get_languages())
+        if post.language_code not in langs:
+            langs.add(post.language_code)
+            author.set_languages(langs)
+            author.save()
+
         return revision
 
 class PostRevision(models.Model):
@@ -2502,10 +2507,10 @@ class PostRevision(models.Model):
         sanitized_html = sanitize_html(markdowner.convert(self.text))
 
         if self.post.is_question():
-            return self.QUESTION_REVISION_TEMPLATE_NO_TAGS % {
+            return sanitize_html(self.QUESTION_REVISION_TEMPLATE_NO_TAGS % {
                 'title': self.title,
                 'html': sanitized_html
-            }
+            })
         else:
             return sanitized_html
 
@@ -2523,20 +2528,19 @@ class PostFlagReason(models.Model):
         app_label = 'askbot'
 
 
-class DraftAnswer(models.Model):
+class DraftAnswer(DraftContent):
     """Provides space for draft answers,
     note that unlike ``AnonymousAnswer`` the foreign key
     is going to ``Thread`` as it should.
     """
     thread = models.ForeignKey('Thread', related_name='draft_answers')
     author = models.ForeignKey(User, related_name='draft_answers')
-    text = models.TextField(null=True)
 
     class Meta:
         app_label = 'askbot'
 
 
-class AnonymousAnswer(DraftContent):
+class AnonymousAnswer(AnonymousContent):
     """Todo: re-route the foreign key to ``Thread``"""
     question = models.ForeignKey(Post, related_name='anonymous_answers')
 

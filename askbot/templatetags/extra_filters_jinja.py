@@ -6,6 +6,7 @@ import urllib
 from coffin import template as coffin_template
 from bs4 import BeautifulSoup
 from django.core import exceptions as django_exceptions
+from django.utils.encoding import force_unicode
 from django.utils.translation import ugettext as _
 from django.utils.translation import get_language as django_get_language
 from django.contrib.humanize.templatetags import humanize
@@ -25,6 +26,7 @@ from askbot.utils import html as html_utils
 from askbot.utils import functions
 from askbot.utils import url_utils
 from askbot.utils.markup import markdown_input_converter
+from askbot.utils.markup import convert_text as _convert_text
 from askbot.utils.slug import slugify
 from askbot.utils.pluralization import py_pluralize as _py_pluralize
 from askbot.shims.django_shims import ResolverMatch
@@ -185,13 +187,13 @@ def not_equal(one, other):
     return one != other
 
 @register.filter
-def media(url):
+def media(url, ignore_missing=False):
     """media filter - same as media tag, but
     to be used as a filter in jinja templates
     like so {{'/some/url.gif'|media}}
     """
     if url:
-        return skin_utils.get_media_url(url)
+        return skin_utils.get_media_url(url, ignore_missing)
     else:
         return ''
 
@@ -398,6 +400,8 @@ def sub_vars(text, user=None):
     sitename_re = re.compile(r'\{\{\s*SITE_NAME\s*\}\}')
     sitelink_re = re.compile(r'\{\{\s*SITE_LINK\s*\}\}')
 
+    text = force_unicode(text)
+
     if user:
         if user.is_anonymous():
             username = _('Visitor')
@@ -414,3 +418,8 @@ def sub_vars(text, user=None):
 @register.filter
 def convert_markdown(text):
     return markdown_input_converter(text)
+
+@register.filter
+def convert_text(text):
+    """converts text with the currently selected editor"""
+    return _convert_text(text)

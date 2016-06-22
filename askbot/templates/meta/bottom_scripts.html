@@ -36,6 +36,9 @@
     askbot['settings']['errorPlacement'] = 'after-label';
     askbot['data']['maxCommentLength'] = {{ settings.MAX_COMMENT_LENGTH }};
     askbot['settings']['editorType'] = '{{ settings.EDITOR_TYPE }}';
+    {% if settings.EDITOR_TYPE == 'tinymce' %}
+        askbot['settings']['tinyMCEConfigJson'] = '{{ settings.TINYMCE_CONFIG_JSON|escapejs }}';
+    {% endif %}
     askbot['settings']['commentsEditorType'] = '{{ settings.COMMENTS_EDITOR_TYPE }}';
     askbot['messages']['askYourQuestion'] = '{{ settings.WORDS_ASK_YOUR_QUESTION }}';
     askbot['messages']['questionSingular'] = '{{ settings.WORDS_QUESTION_SINGULAR|escapejs }}';
@@ -62,6 +65,7 @@
 {% compress js %}
     <script type="text/javascript" src="{{ '/jslib/jquery-1.7.2.min.js'|media }}"></script>
     <script type="text/javascript" src="{{ '/bootstrap/js/bootstrap.js'|media }}"></script>
+    <script type='text/javascript' src="{{ '/jslib/timeago.js'|media }}"></script>
     <!-- History.js -->
     <script type='text/javascript' src="{{ '/jslib/jquery.history.js'|media }}"></script>
     <!-- Utils.js -->
@@ -86,13 +90,15 @@
     <script type='text/javascript' src="{{ '/js/utils/modal_dialog.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/file_upload_dialog.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/text_property_editor.js'|media }}"></script>
-    <script type='text/javascript' src="{{ '/js/utils/two_state_toggle.js'|media }}"></script>
+    <script type='text/javascript' src="{{ '/js/utils/toggle.js'|media }}"></script>
+    <script type='text/javascript' src="{{ '/js/utils/ajax_toggle.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/dropdown_select.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/box_item_content.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/select_box_item.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/select_box.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/group_dropdown.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/tag.js'|media }}"></script>
+    <script type='text/javascript' src="{{ '/js/utils/hover_card.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/perms_hover_card.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/show_perms_trigger.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/js/utils/autocompleter.js'|media }}"></script>
@@ -101,7 +107,6 @@
     <script type='text/javascript' src="{{ '/jslib/se_hilite.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/jslib/json.js'|media }}"></script>
     <script type='text/javascript' src="{{ '/jslib/jquery-fieldselection.js'|media }}"></script>
-    <script type='text/javascript' src="{{ '/jslib/timeago.js'|media }}"></script>
     {% if settings.USE_ASKBOT_LOGIN_SYSTEM and use_login_page == False %}
         <script type="text/javascript" src="{{ '/js/jquery-openid/jquery.authenticator.js'|media }}"></script>
     {% endif %}
@@ -168,20 +173,22 @@
         var nav = new LangNav();
         nav.decorate(langNav);
     }
-
-    $('abbr.timeago').timeago();
     /*]]>*/
 </script>
 {% include "meta/custom_javascript.html" ignore missing %}
 {# stuff below should not be compressed #}
 {% if settings.ENABLE_MATHJAX %}
     {# we don't want to load mathjax just in case, only if it is really enabled #}
-    <script type='text/javascript' src="{{settings.MATHJAX_BASE_URL}}/MathJax.js">
-        MathJax.Hub.Config({
-            extensions: ["tex2jax.js"],
-            jax: ["input/TeX","output/HTML-CSS"],
-            tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]}
-        });
+    <script type='text/javascript' src="{{settings.MATHJAX_BASE_URL}}/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+        if (typeof MathJax != 'undefined') {
+            MathJax.Hub.Config({
+                extensions: ["tex2jax.js"],
+                jax: ["input/TeX","output/HTML-CSS"],
+                tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]}
+            });
+        } else {
+            console.log('Could not load MathJax');
+        }
     </script>
 {% endif %}
 {% if settings.USE_CUSTOM_JS %}

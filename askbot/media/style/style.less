@@ -51,6 +51,7 @@ select {
     -webkit-appearance: menulist-button;
 }
 
+input[type="email"].prompt,
 input[type="text"].prompt,
 input[type="password"].prompt,
 input.tipped-input.blank {
@@ -61,6 +62,7 @@ textarea:focus, input:focus{
     outline: none;
 }
 
+input[type="email"],
 input[type="text"],
 input[type="password"],
 select,
@@ -74,6 +76,34 @@ textarea,
     height: 22px;
     font-size: 13px;
     padding: 0 5px;
+}
+textarea {
+    padding: 5px;
+}
+
+.js-editable {
+    .wmd-container {
+        height: auto;
+        background: white;
+        padding: 0;
+        margin-bottom: 8px;
+    }
+    textarea {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+    img {
+        max-width: 100%;
+    }
+}
+.wmd-container {
+    textarea {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+    img {
+        max-width: 100%;
+    }
 }
 
 .tos {
@@ -301,14 +331,12 @@ body.user-messages {
 
 .hovercard {
     background: white;
-    border: 3px solid #ddd;
-    .box-shadow(0, 0, 3px);
+    .box-shadow(0, 0, 5px);
     font-size: 13px;
     display: block;
     max-width: 250px;
     padding: 10px;
     position: absolute;
-    .rounded-corners(5px);
     z-index: 1001;
     p:last-child {
         margin-bottom: 0;
@@ -322,9 +350,9 @@ body.user-messages {
         }
     }
     .triangle {
-        border-left: 5px solid transparent;
-        border-right: 10px solid transparent;
-        border-bottom: 10px solid #ddd;
+        border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-bottom: 10px solid white;
         height: 0;
         margin: -20px 0 10px 0;
         width: 0;
@@ -446,9 +474,9 @@ body.user-messages {
 
 #userToolsNav {/* Navigation bar containing login link or user information, check widgets/user_navigation.html*/
     height: 20px;
-    padding-bottom:5px;
+    padding-bottom: 5px;
     white-space: nowrap;
-    font-size:16px;
+    font-size: 16px;
 
     a {
         height: 35px;
@@ -558,9 +586,9 @@ body.user-messages {
     }
 
     a.group-name {
-        padding: 0px;
+        margin: 0px;
         float: none;
-        margin: 5px 10px;
+        padding: 5px 10px;
     }
     
     input.group-name {
@@ -605,6 +633,11 @@ body.user-messages {
 #metaNav {
     a:hover {
         color: #ebff88;
+    }
+    .dropdown-menu a:hover {
+        color: white;
+        background: #aaa;
+        text-decoration: none;
     }
 }
 
@@ -822,22 +855,11 @@ input[type="submit"].searchBtn {
     text-align: center;
     margin: 0;
     width: 48px;
-    .sprites(-98px,-36px);
+    .sprites(-98px,-37px);
     .rounded-corners(0);
     .box-shadow(0, 0, 0);
     cursor:pointer;
     z-index: 10001;
-}
-
-.groups-page, /* todo: clean up - should not need this */
-.badges-pages,
-.user-profile-page,
-.meta,
-.openid-signin,
-.users-page {
-    input[type="submit"].searchBtn {
-        margin-top: 1px;
-    }
 }
 
 .badge-list .placeholder {
@@ -900,7 +922,7 @@ input[type="submit"].searchBtn:hover {
     background-image: none;
     background-image: none;
     background-image: none;
-    background: url(../images/sprites.png) no-repeat -146px -36px !important;
+    background: #ddd url(../images/sprites.png) no-repeat -146px -37px !important;
 }
 
 input[type="button"].cancelSearchBtn {
@@ -1249,10 +1271,6 @@ body.anon.ask-page .search-drop-menu {
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    -moz-border-radius: 5px;
-    -khtml-border-radius: 5px;
-    -webkit-border-radius: 5px;
-    .box-shadow(1px, 1px, 3px, #999);
     padding: 7px 10px 9px 0;
     margin-bottom: 10px;
     width: 100%;
@@ -2145,11 +2163,20 @@ ul.js-related-tags li {
     }
 }
 
+a.question-body-trigger {
+    color: #525252;
+    display: block;
+    margin-bottom: 8px;
+    text-decoration: underline;
+}
+
 .wmd-container,
 .js-simple-editor {
     textarea {
         border: none;
+        overflow: hidden;
     }
+    //.mirror absolute position is set in the post.js
 }
 .users-page {
     .wmd-container,
@@ -2259,6 +2286,37 @@ ul.js-related-tags li {
     }
 }
 
+.folded-editor .wmd-container {
+    margin-bottom: 10px;
+}
+
+.wmd-container .wmd-preview {
+    margin: 0;
+    border-top: 3px solid #cecece;
+    padding-top: 28px;
+}
+
+.wmd-container.wmd-previewer-collapsed {
+    margin-bottom: 28px !important;
+}
+
+.wmd-previewer-toggle {
+    cursor: pointer;
+    background: #cce6ec;
+    display: inline-block;
+    float: left; //need for IE
+    padding: 0 8px 0 5px;
+    margin: 0 0 -25px 0;
+    border-top: 3px solid #cecece;
+}
+
+.wmd-previewer-toggle.off-state,
+.wmd-previewer-toggle.on-prompt {
+    padding: 0 8px 0 8px;
+    margin: 0 0 -25px -3px;
+    border-top: 3px solid #cce6ec;
+}
+
 .defaultSkin table.mceLayout,
 .defaultSkin table.mceLayout tr.mceFirst td {
     border: none;
@@ -2269,6 +2327,12 @@ ul.js-related-tags li {
 .mceStatusbar {
     height: 5px;
     background: #fff;
+}
+tr.mceLast {
+    height: 0;
+}
+.defaultSkin td.mceIframeContainer {
+    vertical-align: top;
 }
 .defaultSkin span.mce_askbot_imageuploader {
     background-position: -380px 0px;
@@ -2375,14 +2439,51 @@ ul.js-related-tags li {
 .question-page {
 
     h1 {
+        display: inline-block;
         padding-top:0px;
         font-family:@main-font;
+        width: 100%;
 
         a {
             color:@question-link;
             font-size:26px;
             font-weight:normal;
             line-height:1;
+        }
+        .js-editable-controls,
+        .js-editable-content {
+            display: inline;
+        }
+        .btn-link {
+            background-image: none;
+            background-color: transparent;
+            border: none !important;
+            box-shadow: none;
+            font-family: arial;
+            font-weight: normal;
+            height: 16px;
+            text-shadow: none;
+            line-height: 16px;
+            color: #888;
+            padding: 0;
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+        .js-simple-editor {
+            margin-bottom: 8px;
+            textarea {
+                color: #666;
+                font-family: @main-font;
+                font-size: 30px;
+                line-height: 36px;
+                height: 66px;
+                width: 100% !important;
+            }
+        }
+        .js-error {
+            font-size: 16px;
+            font-family: @body-font;
         }
     }
 
@@ -2436,6 +2537,8 @@ ul.js-related-tags li {
         color: #4b4b4b;
         word-wrap: break-word;
         max-width: 683px;
+        margin: 8px 0 0 0;
+        padding-bottom: 5px;
 
         a {
             color:@link;
@@ -2454,6 +2557,10 @@ ul.js-related-tags li {
             line-height:1.4;
             font-size:14px;
             padding:0px 5px 5px 0px;
+            &:last-child {
+                margin-bottom: 0;
+                padding-bottom: 0;
+            }
         }
 
     }
@@ -2683,9 +2790,9 @@ ul.js-related-tags li {
         }
 
         .edit-comment-buttons {
-            margin-left: -4px;
+            margin-left: -2px;
             .checkbox {
-                margin: 3px;
+                margin: 8px 0 0 0;
             }
         }
         
@@ -2750,9 +2857,6 @@ ul.js-related-tags li {
         .js-simple-editor {
             textarea {
                 border: none;
-                box-shadow: inset 0 0 3px 1px #aaa;
-                -moz-box-shadow: inset 0 0 3px 1px #aaa;
-                -webkit-box-shadow: inset 0 0 3px 1px #aaa
             }
         } 
         input {
@@ -3123,6 +3227,7 @@ ul.js-related-tags li {
 /* -----Content pages, Login, About, FAQ, Users----- */
 
 .openid-signin {
+    input[type="email"],
     input[type="text"],
     input[type="password"] {
         color: #525252;
@@ -3148,6 +3253,8 @@ ul.js-related-tags li {
 
 .registration-page {
     .login {
+        input[type="email"],
+        input[type="password"],
         input[type="text"] {
             height: 22px;
             font-size: 12px;
@@ -3191,6 +3298,7 @@ ul.js-related-tags li {
         margin-bottom:15px;
     }
 
+    input[type="email"],
     input[type="text"],
     input[type="password"],
     select {
@@ -3207,7 +3315,6 @@ ul.js-related-tags li {
     textarea{
         padding-left:5px;
         padding-top:5px;
-        width:395px;
         font-size:14px;
     }
     input.submit{
@@ -3224,6 +3331,31 @@ ul.js-related-tags li {
     .re {
         float: left;
         width: 960px;
+    }
+}
+
+.user-profile-edit-page {
+    td {
+        padding: 3px 5px 3px 0;
+    }
+    select {
+        width: 100%;
+    }
+    .user-details {
+        input[type="text"],
+        textarea {
+            width: 100%;
+        }
+    }
+    .user-details {
+        input[type="checkbox"],
+        input[type="submit"],
+        input[type="button"] {
+            margin: 10px 0;
+        }
+    }
+    label {
+        line-height: 31px;
     }
 }
 
@@ -3353,6 +3485,7 @@ ul.js-related-tags li {
 #password-fs,
 #openid-fs,
 #signup-form {
+    input[type="email"],
     input[type="text"],
     input[type="password"] {
         color: #525252;
@@ -3452,6 +3585,7 @@ a.medal {
     border-bottom: 1px solid #CCC;
     border-right: 1px solid #CCC;
     padding: 4px 12px 4px 6px;
+    white-space: nowrap;
 }
 
 a:hover.medal {
@@ -3466,8 +3600,8 @@ a:hover.medal {
 
 #award-list{
     .user{
-        float:left;
-       margin:5px;
+        float: left;
+        margin: 5px;
     }
 }
 
@@ -3480,8 +3614,6 @@ a:hover.medal {
 }
 
 .user-profile-page {
-    color:@info-text-dark;
-
     p {
         font-size:13px;
         line-height:1.3;
@@ -3567,6 +3699,17 @@ a:hover.medal {
     }
     .vote-notification h3 {
         padding: 10px;
+    }
+
+    .js-editable {
+        .wmd-container {
+            textarea {
+                min-height: 135px;
+            }
+        }
+        .js-editable-content {
+            margin-bottom: 8px;
+        }
     }
 }
 
@@ -3902,11 +4045,13 @@ ul.errorlist {
 }
 
 
+.js-error,
 .form-error {
     color: #900;
     font-weight: normal;
     vertical-align: bottom;
 }
+
 label + .form-error {
     padding-left: 8px;
 }
@@ -3960,10 +4105,12 @@ table.form-as-table {
         text-align: left;
         font-weight: normal;
     }
-}
-
-table.ab-subscr-form {
-    width: 45em;
+    &.ab-subscr-form {
+        td {
+            padding: 0 6px;
+            text-align: center;
+        }
+    }
 }
 
 .submit-row {
@@ -4060,6 +4207,7 @@ label.retag-error {
 .timeago {
     font-weight: bold;
     text-decoration: none;
+    display: none; //shown by js after rendering
 }
 
 .narrow .tags {
@@ -4074,7 +4222,7 @@ label.retag-error {
         vertical-align: top;
     }
     .timestamp {
-        width: 80px;
+        width: 93px;
     }
     .action-type {
         width: 150px;
@@ -4964,12 +5112,19 @@ td.setting-label {
 td.setting-input {
     padding-left: 10px;
     width: 70%;
-    input[type="text"] { 
+
+    input[type="text"],
+    input[type="number"] { 
         font-size: 13px;
         height: 28px;
         line-height: 28px;
         padding-left: 5px;
         width: 50%;
+        border: #cce6ec 3px solid;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]:hover::-webkit-inner-spin-button {
+        height: 25px;
     }
     select {
         width: 50%;
@@ -5042,11 +5197,15 @@ td.setting-input {
     }
     #ContentLeft,
     #ContentFull {
-        padding-left: 6px;
+        padding: 0 6px 20px 6px;
+        width: 100%;
     }
-    #ContentRight,
-    #ContentFull {
-        padding-right: 6px;
+    #userToolsNav {
+        padding-left: 8px;
+        margin-right: 20px;
+    }
+    .answer-votes {
+        height: 24px;
     }
     .short-summary {
         width: 100%;
@@ -5072,6 +5231,18 @@ td.setting-input {
             margin-left: 2px;
         }
     }
+    .meta,
+    .users-page,
+    .user-profile-edit-page,
+    .user-profile-page {
+        input[type="email"],
+        input[type="text"],
+        input[type="password"],
+        select {
+            height: 32px;
+            line-height: 32px;
+        }
+    }
 }
 @media screen and (max-width: 800px) {
     body {
@@ -5085,10 +5256,6 @@ td.setting-input {
     }
     #ContentRight {
         display: none;
-    }
-    #ContentLeft {
-        width: 100%;
-        padding-right: 6px;
     }
     .edit-question-page,
     .edit-answer-page,
@@ -5183,24 +5350,15 @@ td.setting-input {
         }
     }
 
-    .user-profile-page {
-        td {
-            display: block;
-        }
-    }
-
     .footer-links,
     .powered-link {
         text-align: center;
         width: 100%;
     }
 
-    #userToolsNav {
-        margin-left: 10px;
-    }
-
     #metaNav {
         float: left;
+        margin-left: 8px;
         a#navUsers,
         a#navTags,
         a#navGroups {
@@ -5208,7 +5366,7 @@ td.setting-input {
             color: #d0e296;
             font-size: 16px;
             text-decoration: underline;
-            margin-left: 20px;
+            margin: 7px 28px 0 0;
             padding-left: 0;
         }
     }
@@ -5219,10 +5377,30 @@ td.setting-input {
         padding-top: 0;
     }
     .short-summary {
+        padding: 3px 0 8px;
         width: 100%;
+        .tags {
+            margin-top: -8px;
+            li {
+                margin: 8px 8px 1px 0;
+            }
+        }
     }
     #secondaryHeader td.search-bar {
         padding: 0 6px;
+    }
+    table.form-as-table.ab-tag-filter-form {
+        td {
+            text-align: left;
+        }
+        th {
+            vertical-align: top;
+            padding-right: 20px;
+        }
+        li {
+            display: block;
+            line-height: 26px;
+        }
     }
 }
 
@@ -5242,6 +5420,18 @@ td.setting-input {
             margin-top: 8px !important;
         }
     }
+    .meta,
+    .users-page,
+    .user-profile-edit-page,
+    .user-profile-page {
+        input[type="email"],
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+        }
+    }
+
 }
 
 @media screen and (max-width: 480px) {
